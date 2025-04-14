@@ -1,0 +1,6 @@
+/env
+local_config.py
+ee-service-credential.json
+iykra-online-service-credential.json
+/node_modules
+package-lock.json

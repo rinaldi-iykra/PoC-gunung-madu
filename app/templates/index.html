@@ -1,0 +1,311 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Sugar Cane Monitoring | IYKRA</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet-ajax"></script>
+        <style>
+            #map {
+                min-height: 500px;
+                height: 100% !important;
+            }
+            .z-999 {
+                z-index: 999;
+            }
+            .monitoring-bg { background-color: #C7DFE0; }
+            .monitoring-title { color: #1E1E1E; }
+            .monitoring-card-bg { background-color: #DFEBEB; }
+            .monitoring-card-bg2 { background-color: #229696; }
+            .monitoring-card-bg3 { background-color: #63B7B7; }
+            .monitoring-card-bg4 { background-color: #E6F0F1; }
+            .button-stepper {
+                height: 40px;
+                width: 40px;
+                background-color: #C7E5E7;
+                color: #63B7B7;
+                border-radius: 50%;
+                border: 1px solid #C7E5E7;
+            }
+            .button-stepper:hover {
+                border: 1px solid #63B7B7;
+                transition: box-shadow 0.3s ease;
+            }
+            .button-stepper.disabled {
+                opacity: 0.4;
+                pointer-events: none;
+                cursor: not-allowed;
+            }
+            .btn-selection:hover {
+                background-color: #C7E5E7;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="py-8 space-y-8 monitoring-bg min-h-screen px-4 lg:px-0">
+            <header class="">
+                <div class="container mx-auto flex flex-row place-content-between">
+                    <h1 class="text-2xl lg:text-4xl font-bold monitoring-title">Sugar Cane Monitoring</h1>
+                    <img class="object-cover h-full" src="https://ik.imagekit.io/iykra/PoC/iykra-logo-black.png"/>
+                </div>
+            </header>
+            
+            <main>
+                <div class="container mx-auto">
+                    <div class="grid sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-0 lg:gap-4 space-y-4 lg:space-y-0 items-stretch">
+                        
+                        <div class="card monitoring-card-bg shadow-xl rounded-xl p-4 col-span-2 md:col-span-2 lg:col-span-3 flex flex-col space-y-4">
+                            <div class="flex flex-row place-content-between">
+                                <b class="monitoring-title place-content-center">Location View</b>
+                                
+                                <div class="w-40 lg:w-80">
+                                    <div class="relative">
+                                        <button
+                                            id="select-button"
+                                            type="button"
+                                            class="relative w-full cursor-default rounded-md bg-white py-2 pl-3 pr-10 text-left shadow-lg focus:outline-none sm:text-sm"
+                                            aria-haspopup="listbox"
+                                            aria-expanded="false"
+                                            aria-labelledby="listbox-label"
+                                        >
+                                            <span id="selected-option" class="block truncate">NDVI</span>
+                                            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                            <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.294l3.71-4.06a.75.75 0 011.14.98l-4.25 4.65a.75.75 0 01-1.1 0l-4.25-4.65a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                            </svg>
+                                            </span>
+                                        </button>
+                                    
+                                        <ul
+                                            id="options-list"
+                                            class="absolute z-999 mt-1 hidden max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+                                            role="listbox"
+                                            aria-labelledby="listbox-label"
+                                        >
+                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option">NDVI</li>
+                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option">NDWI</li>
+                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option">Temperature</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <!-- <img class="object-cover w-full h-full rounded-lg" src="https://ik.imagekit.io/iykra/PoC/NDVI.png"/> -->
+                                <div id="map" class="rounded"></div>
+                            </div>
+                        </div>
+            
+                        <div class="flex flex-col gap-4 col-span-2 grid grid-cols-2">
+                            <div class="col-span-1 card monitoring-card-bg shadow-xl rounded-xl p-4 text-center space-y-2">
+                                <b class="monitoring-title">Vegetation Index</b>
+                                <!-- <p class="text-4xl lg:text-6xl">0.8</p> -->
+                                <p id="avg_vi" class="text-4xl lg:text-6xl">{{ avg_vi }}</p>
+                            </div>
+            
+                            <div class="col-span-1 card monitoring-card-bg shadow-xl rounded-xl p-4 text-center space-y-2">
+                                <b class="monitoring-title">Average Temperature</b>
+                                <!-- <p class="text-4xl lg:text-6xl">25°C</p> -->
+                                <div class="flex flex-row justify-center text-center">
+                                    <p id="avg_temp" class="text-4xl lg:text-6xl">{{ avg_temp }}</p><p class="text-4xl lg:text-6xl">°C</p>
+                                </div>
+                            </div>
+            
+                            <div class="col-span-2 card monitoring-card-bg shadow-xl rounded-xl p-4 space-y-2">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="text-center monitoring-title monitoring-card-bg4 p-4 space-y-2 rounded-xl shadow-sm">
+                                        <b>Period</b>
+                                        <div class="flex flex-row place-content-around">
+                                            <button class="button button-stepper down hover:shadow-xl">-</button>
+                                            <p class="text-2xl lg:text-4xl" id="stepper-period">Q1</p>
+                                            <button class="button button-stepper up hover:shadow-xl">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="text-center monitoring-title monitoring-card-bg4 p-4 space-y-2 rounded-xl shadow-sm">
+                                        <b>Year</b>
+                                        <div class="flex flex-row place-content-around">
+                                            <button class="button button-stepper down hover:shadow-xl">-</button>
+                                            <p class="text-2xl lg:text-4xl" id="stepper-year">2019</p>
+                                            <button class="button button-stepper up hover:shadow-xl">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+            
+                            <div class="col-span-2 card monitoring-card-bg2 text-white shadow-xl rounded-xl p-4 text-center space-y-2">
+                                <b>CGDD</b>
+                                <!-- <p class="text-4xl lg:text-6xl">9.064</p> -->
+                                <p id="avg_cgdd" class="text-4xl lg:text-6xl">{{ avg_cgdd }}</p>
+                            </div>
+            
+                            <div class="col-span-2 card monitoring-card-bg2 shadow-xl rounded-xl p-4 space-y-2 text-center">
+                                <b class="text-white">Harvest Time Estimation</b>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="card rounded-xl monitoring-card-bg3 text-white p-4 text-center space-y-2">
+                                        <!-- <p class="text-6xl lg:text-8xl">180</p> -->
+                                        <p id="avg_days" class="text-6xl lg:text-8xl">{{ avg_days }}</p>
+                                        <p>days left</p>
+                                    </div>
+                                    <div class="card rounded-xl text-white p-4 text-center space-y-2">
+                                        <p class="text-6xl lg:text-8xl">71%</p>
+                                        <!-- <p id="prediction_accuracy" class="text-6xl lg:text-8xl">{{ prediction_accuracy }}%</p> -->
+                                        <p>prediction accuracy</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+        </div>
+
+        <script>
+            var map = L.map('map').setView([-4.708865382035771, 105.2051646534618], 14);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | IYKRA'
+            }).addTo(map);
+
+            var polygonData = {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [105.2051646534618, -4.708865382035771],
+                        [105.2078225811218, -4.709224864499885],
+                        [105.2076585945317, -4.706996455914189],
+                        [105.2058363831134, -4.706309150550001],
+                        [105.2051646534618, -4.708865382035771]
+                    ]
+                ]
+            };
+
+            // Menambahkan polygon ke peta
+            L.geoJSON(polygonData).addTo(map);
+
+            // Set zoom level dan center agar polygon terlihat jelas
+            map.fitBounds(L.geoJSON(polygonData).getBounds());
+        </script>
+        <script>
+            const selectButton = document.getElementById('select-button');
+            const optionsList = document.getElementById('options-list');
+            const selectedOption = document.getElementById('selected-option');
+
+            const availableYear = [2019, 2020, 2021, 2022, 2023, 2024];
+            const availablePeriod = ["Q1", "Q2", "Q3", "Q4"];
+        
+            // Toggle dropdown visibility
+            selectButton.addEventListener('click', () => {
+                optionsList.classList.toggle('hidden');
+                selectButton.setAttribute('aria-expanded', optionsList.classList.contains('hidden') ? 'false' : 'true');
+            });
+
+            // Close dropdown and set selected value
+            optionsList.querySelectorAll('li').forEach(option => {
+                option.addEventListener('click', () => {
+                    selectedOption.textContent = option.textContent;
+                    optionsList.classList.add('hidden');
+                    selectButton.setAttribute('aria-expanded', 'false');
+                });
+            });
+        
+            // Optional: Close dropdown if clicked outside
+            document.addEventListener('click', (e) => {
+                if (!selectButton.contains(e.target) && !optionsList.contains(e.target)) {
+                    optionsList.classList.add('hidden');
+                    selectButton.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            document.addEventListener("DOMContentLoaded", () => {
+                const periodEl = document.getElementById("stepper-period");
+                const yearEl = document.getElementById("stepper-year");
+
+                const getIndex = (arr, value) => arr.indexOf(value);
+
+                const updateStepperButtons = () => {
+                    // Period
+                    const currentPeriodIndex = getIndex(availablePeriod, periodEl.textContent);
+                    const periodContainer = periodEl.closest(".monitoring-card-bg4");
+                    const periodDown = periodContainer.querySelector(".button-stepper.down");
+                    const periodUp = periodContainer.querySelector(".button-stepper.up");
+
+                    periodDown.classList.toggle("disabled", currentPeriodIndex === 0);
+                    periodUp.classList.toggle("disabled", currentPeriodIndex === availablePeriod.length - 1);
+
+                    // Year
+                    const currentYearIndex = getIndex(availableYear, parseInt(yearEl.textContent));
+                    const yearContainer = yearEl.closest(".monitoring-card-bg4");
+                    const yearDown = yearContainer.querySelector(".button-stepper.down");
+                    const yearUp = yearContainer.querySelector(".button-stepper.up");
+
+                    yearDown.classList.toggle("disabled", currentYearIndex === 0);
+                    yearUp.classList.toggle("disabled", currentYearIndex === availableYear.length - 1);
+
+                    $.ajax({
+                        type: "GET",
+                        url: "/calculate-data",
+                        data: { year: availableYear[currentYearIndex], period: availablePeriod[currentPeriodIndex] },
+                        dataType: "text",
+                        success: function(data) {
+                            const jsonData = JSON.parse(data);
+                            const status = jsonData["status"];
+                            const datas = jsonData["datas"];
+
+
+                            if (status === true) {
+                                for (const key in datas) {
+                                    const element = document.getElementById(key);
+                                    if (element) {
+                                        if ('value' in element) {
+                                            element.value = datas[key];
+                                        } else {
+                                            element.innerHTML = datas[key];
+                                        }
+                                    }
+                                }
+                            } else {
+                                // pass if empty
+                            }
+                        }
+                    });
+                };
+
+                updateStepperButtons();
+
+                document.querySelectorAll(".button-stepper").forEach(button => {
+                    button.addEventListener("click", () => {
+                        if (button.classList.contains("disabled")) return; // Prevent interaction
+
+                        const isUp = button.classList.contains("up");
+                        const parent = button.closest(".monitoring-card-bg4");
+                        const isPeriod = parent.querySelector("#stepper-period");
+                        
+                        if (isPeriod) {
+                            const current = periodEl.textContent;
+                            let index = getIndex(availablePeriod, current);
+                            index = isUp ? index + 1 : index - 1;
+
+
+                            if (index >= 0 && index < availablePeriod.length) {
+                                periodEl.textContent = availablePeriod[index];
+                            }
+                        } else {
+                            const current = parseInt(yearEl.textContent);
+                            let index = getIndex(availableYear, current);
+                            index = isUp ? index + 1 : index - 1;
+
+                            if (index >= 0 && index < availableYear.length) {
+                                yearEl.textContent = availableYear[index];
+                            }
+                        }
+
+                        updateStepperButtons();
+                    });
+                });
+            });
+        </script>
+    </body>
+</html>
