@@ -8,6 +8,13 @@
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
         <script src="https://unpkg.com/leaflet-ajax"></script>
+        <style type="text/tailwindcss">
+            @layer utilities {
+              .is-loading {
+                @apply animate-pulse bg-gray-300 text-transparent select-none pointer-events-none rounded;
+              }
+            }
+          </style>
         <style>
             #map {
                 min-height: 500px;
@@ -71,7 +78,7 @@
                                             aria-expanded="false"
                                             aria-labelledby="listbox-label"
                                         >
-                                            <span id="selected-option" class="block truncate">NDVI</span>
+                                            <span id="selected-option" class="block truncate">Location 1</span>
                                             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                                             <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                 <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.294l3.71-4.06a.75.75 0 011.14.98l-4.25 4.65a.75.75 0 01-1.1 0l-4.25-4.65a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -85,15 +92,13 @@
                                             role="listbox"
                                             aria-labelledby="listbox-label"
                                         >
-                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option">NDVI</li>
-                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option">NDWI</li>
-                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option">Temperature</li>
+                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option" value="0">Location 1</li>
+                                            <li class="cursor-pointer select-none py-2 pl-3 pr-9 text-gray-900 btn-selection" role="option" value="1">Location 2</li>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
                             <div class="flex-1">
-                                <!-- <img class="object-cover w-full h-full rounded-lg" src="https://ik.imagekit.io/iykra/PoC/NDVI.png"/> -->
                                 <div id="map" class="rounded"></div>
                             </div>
                         </div>
@@ -101,15 +106,15 @@
                         <div class="flex flex-col gap-4 col-span-2 grid grid-cols-2">
                             <div class="col-span-1 card monitoring-card-bg shadow-xl rounded-xl p-4 text-center space-y-2">
                                 <b class="monitoring-title">Vegetation Index</b>
-                                <!-- <p class="text-4xl lg:text-6xl">0.8</p> -->
-                                <p id="avg_vi" class="text-4xl lg:text-6xl">{{ avg_vi }}</p>
+                                <div class="flex flex-row justify-center text-center">
+                                    <p id="avg_vi" class="text-4xl lg:text-6xl is-output">{{ avg_vi }}</p>
+                                </div>
                             </div>
             
                             <div class="col-span-1 card monitoring-card-bg shadow-xl rounded-xl p-4 text-center space-y-2">
-                                <b class="monitoring-title">Average Temperature</b>
-                                <!-- <p class="text-4xl lg:text-6xl">25°C</p> -->
+                                <b class="monitoring-title">Wide Location</b>
                                 <div class="flex flex-row justify-center text-center">
-                                    <p id="avg_temp" class="text-4xl lg:text-6xl">{{ avg_temp }}</p><p class="text-4xl lg:text-6xl">°C</p>
+                                    <p id="avg_wide" class="text-4xl lg:text-6xl is-output">{{ avg_wide }}</p>
                                 </div>
                             </div>
             
@@ -135,22 +140,23 @@
                             </div>
             
                             <div class="col-span-2 card monitoring-card-bg2 text-white shadow-xl rounded-xl p-4 text-center space-y-2">
-                                <b>CGDD</b>
-                                <!-- <p class="text-4xl lg:text-6xl">9.064</p> -->
-                                <p id="avg_cgdd" class="text-4xl lg:text-6xl">{{ avg_cgdd }}</p>
+                                <b>Yield</b>
+                                <div class="flex flex-row justify-center text-center">
+                                    <p id="avg_yield" class="text-4xl lg:text-6xl is-output">{{ avg_yield }}</p>
+                                </div>
                             </div>
             
                             <div class="col-span-2 card monitoring-card-bg2 shadow-xl rounded-xl p-4 space-y-2 text-center">
                                 <b class="text-white">Harvest Time Estimation</b>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="card rounded-xl monitoring-card-bg3 text-white p-4 text-center space-y-2">
-                                        <!-- <p class="text-6xl lg:text-8xl">180</p> -->
-                                        <p id="avg_days" class="text-6xl lg:text-8xl">{{ avg_days }}</p>
+                                        <p id="prediction_days" class="text-6xl lg:text-8xl is-output">{{ prediction_days }}</p>
                                         <p>days left</p>
                                     </div>
                                     <div class="card rounded-xl text-white p-4 text-center space-y-2">
-                                        <p class="text-6xl lg:text-8xl">71%</p>
-                                        <!-- <p id="prediction_accuracy" class="text-6xl lg:text-8xl">{{ prediction_accuracy }}%</p> -->
+                                        <div class="flex flex-row justify-center text-center text-6xl lg:text-8xl">
+                                            <p id="prediction_accuracy" class="text-6xl lg:text-6xl lg:text-8xl is-output">{{ prediction_accuracy }}</p>
+                                        </div>
                                         <p>prediction accuracy</p>
                                     </div>
                                 </div>
@@ -163,55 +169,98 @@
         </div>
 
         <script>
-            var map = L.map('map').setView([-4.708865382035771, 105.2051646534618], 14);
+        </script>
+        <script>
+            const availableYear = [2019, 2020, 2021, 2022, 2023, 2024];
+            const availablePeriod = ["Q1", "Q2", "Q3", "Q4"];
+
+            let masterYear = 0;
+            let masterPeriod = 0;
+            let masterLocation = 0;
+
+
+            const centers = [
+                [-4.708865382035771, 105.2051646534618], // Center for Location 1
+                [-4.709347291424568, 105.2081551442856], // Center for Location 2
+            ];
+
+            const polygonDatas = [
+                {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [105.2051646534618, -4.708865382035771],
+                            [105.2078225811218, -4.709224864499885],
+                            [105.2076585945317, -4.706996455914189],
+                            [105.2058363831134, -4.706309150550001],
+                            [105.2051646534618, -4.708865382035771]
+                        ]
+                    ]
+                },
+                {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [105.2081551442856, -4.709347291424568],
+                            [105.2099412718272, -4.709501265477384],
+                            [105.2101479898903, -4.707286074197111],
+                            [105.2080411202846, -4.707329509495051],
+                            [105.2081551442856, -4.709347291424568]
+                        ]
+                    ]
+                }
+            ];
+
+            const map = L.map('map').setView(centers[0], 14);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | IYKRA'
             }).addTo(map);
 
-            var polygonData = {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [105.2051646534618, -4.708865382035771],
-                        [105.2078225811218, -4.709224864499885],
-                        [105.2076585945317, -4.706996455914189],
-                        [105.2058363831134, -4.706309150550001],
-                        [105.2051646534618, -4.708865382035771]
-                    ]
-                ]
-            };
+            const geoJsonLayers = polygonDatas.map((data, index) =>
+                L.geoJSON(data, {
+                    style: {
+                        color: index === 0 ? 'blue' : 'red',
+                        weight: 2,
+                        fillOpacity: 0.4
+                    }
+                }).addTo(map)
+            );
 
-            // Menambahkan polygon ke peta
-            L.geoJSON(polygonData).addTo(map);
+            function showLocation(index) {
+                geoJsonLayers.forEach((layer, i) => {
+                    const color = i === index ? 'blue' : 'red';
+                    layer.setStyle({
+                        color: color,
+                        weight: 2,
+                        fillOpacity: 0.4
+                    });
+                });
+                map.fitBounds(geoJsonLayers[index].getBounds());
+            }
+            showLocation(masterLocation);
 
-            // Set zoom level dan center agar polygon terlihat jelas
-            map.fitBounds(L.geoJSON(polygonData).getBounds());
-        </script>
-        <script>
             const selectButton = document.getElementById('select-button');
             const optionsList = document.getElementById('options-list');
             const selectedOption = document.getElementById('selected-option');
 
-            const availableYear = [2019, 2020, 2021, 2022, 2023, 2024];
-            const availablePeriod = ["Q1", "Q2", "Q3", "Q4"];
-        
-            // Toggle dropdown visibility
             selectButton.addEventListener('click', () => {
                 optionsList.classList.toggle('hidden');
                 selectButton.setAttribute('aria-expanded', optionsList.classList.contains('hidden') ? 'false' : 'true');
             });
 
-            // Close dropdown and set selected value
-            optionsList.querySelectorAll('li').forEach(option => {
+            optionsList.querySelectorAll('li').forEach((option, index) => {
                 option.addEventListener('click', () => {
                     selectedOption.textContent = option.textContent;
                     optionsList.classList.add('hidden');
                     selectButton.setAttribute('aria-expanded', 'false');
+                    showLocation(index);
+                    masterLocation = index;
+
+                    loadAjaxData();
                 });
             });
-        
-            // Optional: Close dropdown if clicked outside
+
             document.addEventListener('click', (e) => {
                 if (!selectButton.contains(e.target) && !optionsList.contains(e.target)) {
                     optionsList.classList.add('hidden');
@@ -244,33 +293,10 @@
                     yearDown.classList.toggle("disabled", currentYearIndex === 0);
                     yearUp.classList.toggle("disabled", currentYearIndex === availableYear.length - 1);
 
-                    $.ajax({
-                        type: "GET",
-                        url: "/calculate-data",
-                        data: { year: availableYear[currentYearIndex], period: availablePeriod[currentPeriodIndex] },
-                        dataType: "text",
-                        success: function(data) {
-                            const jsonData = JSON.parse(data);
-                            const status = jsonData["status"];
-                            const datas = jsonData["datas"];
+                    masterYear = currentYearIndex;
+                    masterPeriod = currentPeriodIndex;
 
-
-                            if (status === true) {
-                                for (const key in datas) {
-                                    const element = document.getElementById(key);
-                                    if (element) {
-                                        if ('value' in element) {
-                                            element.value = datas[key];
-                                        } else {
-                                            element.innerHTML = datas[key];
-                                        }
-                                    }
-                                }
-                            } else {
-                                // pass if empty
-                            }
-                        }
-                    });
+                    loadAjaxData();
                 };
 
                 updateStepperButtons();
@@ -306,6 +332,55 @@
                     });
                 });
             });
+
+            // Fetch Data
+            function setLoading() {
+                const elements = document.querySelectorAll(".is-output");
+                elements.forEach((element) => {
+                    element.classList.add("is-loading");
+                });
+            }
+
+            function removeLoading() {
+                const elements = document.querySelectorAll(".is-output");
+                elements.forEach((element) => {
+                    element.classList.remove("is-loading");
+                });
+            }
+            function loadAjaxData() {
+                setLoading();
+                $.ajax({
+                    type: "GET",
+                    url: "/calculate-data",
+                    data: { 
+                        year: availableYear[masterYear], 
+                        period: availablePeriod[masterPeriod],
+                        location: masterLocation
+                    },
+                    dataType: "text",
+                    success: function(data) {
+                        const jsonData = JSON.parse(data);
+                        const status = jsonData["status"];
+                        const datas = jsonData["datas"];
+
+                        if (status === true) {
+                            for (const key in datas) {
+                                const element = document.getElementById(key);
+                                if (element) {
+                                    if ('value' in element) {
+                                        element.value = datas[key];
+                                    } else {
+                                        element.innerHTML = datas[key];
+                                    }
+                                }
+                            }
+                        } else {
+                            // pass if empty
+                        }
+                        removeLoading();
+                    }
+                });
+            }
         </script>
     </body>
 </html>

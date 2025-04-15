@@ -3,6 +3,9 @@ import ee
 import os
 import json
 import joblib
+import numpy as np
+from shapely.geometry import Polygon
+from pyproj import Geod
 
 class DashboardHelper:
     base_dir = app.config['BASE_DIR']
@@ -41,6 +44,19 @@ class DashboardHelper:
 
         return polygon_data
     
+    def calculate_wide(self, location=0):
+        polygons = self.load_kml()
+        first_poly = polygons[location]
+        coords = first_poly["coordinates"]
+        lats, lons = zip(*[(lat, lon) for lon, lat in coords])
+
+        geod = Geod(ellps="WGS84")
+        area, _ = geod.polygon_area_perimeter(lons, lats)
+        area = abs(area)
+        hectares = area / 10_000
+
+        return hectares
+    
     def setup_date(self, period: str):
         period_map = {
             "Q1": ("01-01", "03-31"),
@@ -50,9 +66,9 @@ class DashboardHelper:
         }
         return period_map.get(period.upper(), ("01-01", "03-31"))
 
-    def calculate_ndvi(self, year: str = '2019', period: str = 'Q1'):
+    def calculate_ndvi(self, year: str = '2019', period: str = 'Q1', location = 0):
         polygons = self.load_kml()
-        first_poly = polygons[0]
+        first_poly = polygons[location]
         coords = first_poly["coordinates"]
         area = ee.Geometry.Polygon([coords])
 
@@ -82,12 +98,8 @@ class DashboardHelper:
         ndvi_value = mean_dict.getInfo().get('NDVI')
 
         return ndvi_value
-
-    def calculate_ndwi(self):
-        pass
-
-    def calculate_temperature(self, year: str = '2019', period: str = 'Q1'):
-
+    
+    def download_ndvi(self, year: str = '2019', period: str = 'Q1'):
         polygons = self.load_kml()
         first_poly = polygons[0]
         coords = first_poly["coordinates"]
@@ -97,40 +109,49 @@ class DashboardHelper:
         start_date = f"{year}-{start_suffix}"
         end_date = f"{year}-{end_suffix}"
 
-        # Ambil koleksi citra
-        collection = ee.ImageCollection('MODIS/006/MOD11A2') \
+        collection = ee.ImageCollection('COPERNICUS/S2') \
             .filterDate(start_date, end_date) \
             .filterBounds(area) \
-            .select('LST_Day_1km')
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20)) \
+            .select(['B8', 'B4'])
 
-        # Cek apakah koleksi punya gambar
-        size = collection.size().getInfo()
-        if size == 0:
-            print("No MODIS LST data found for this period and area.")
+        if collection.size().getInfo() == 0:
+            print("No Sentinel-2 data found for this period and area.")
             return None
 
-        # Hitung rata-rata & konversi ke Celsius
-        image = collection.mean()
-        lst_celsius = image.multiply(0.02).subtract(273.15).rename('LST_Celsius')
+        image = collection.median()
 
-        mean_dict = lst_celsius.reduceRegion(
-            reducer=ee.Reducer.mean(),
-            geometry=area,
-            scale=1000,
-            maxPixels=1e9
-        )
+        # Hitung NDVI
+        ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI')
 
-        temperature_value = mean_dict.getInfo().get('LST_Celsius')
-        return temperature_value
+        # Export as image download URL (PNG)
+        url = ndvi.visualize(min=0.0, max=1.0, palette=['white', 'green']) \
+            .getDownloadURL({
+                'scale': 10,
+                'region': area,
+                'format': 'GEO_TIFF'
+            })
 
+        print("Download NDVI image URL:", url)
+        return url
+    
+    def calculate_harvest_day(self, ndvi):
+        model = joblib.load('ndvi_to_harvest_days.pkl')
+        
+        all_tree_preds = [tree.predict(np.array([[ndvi]]))[0] for tree in model.estimators_]
+        days_remaining = np.mean(all_tree_preds)
+        std_dev = np.std(all_tree_preds)
+        confidence_score = max(0, min(100, 100 - (std_dev / days_remaining * 100)))
 
+        return days_remaining, confidence_score
+    
+    def calculate_yield(self, year, hectare):
+        model = joblib.load('yield_per_hectare_model.pkl')
+        poly = joblib.load('year_poly_transform.pkl')
 
-    def calculate_cgdd(self, temp):
-        base_sugarcane_temp = 18 # 18 degree celcius
-        result = (temp - base_sugarcane_temp)
-        return "%.4f" % round(result, 4)
+        year_poly = poly.transform([[year]])
+        yield_per_hectare = model.predict(year_poly)[0]
+        total_yield = yield_per_hectare * hectare
 
-    def calculate_prediction(self, ndvi, cgdd):
-        model = joblib.load('harvest_predictor.joblib')
-        predicted_days = model.predict([[ndvi, cgdd]])
-        return int(predicted_days)
+        return total_yield
+    

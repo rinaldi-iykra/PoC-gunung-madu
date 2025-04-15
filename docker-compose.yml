@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  app:
+    image: asia-southeast1-docker.pkg.dev/iykra-online/iykraweb/poc-gunungmadu:latest
+    container_name: poc-gunungmadu
+    volumes:
+      - /Users/rinaldi/Documents/IYKRA/PoC/gunung-madu/local_config:/app/local_config
+    ports:
+      - "5000:5000"
+    environment:
+      - CONFIG_PATH=/app/local_config

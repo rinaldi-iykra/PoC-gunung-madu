@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from flask_script import Manager
+from flask_script import Manager, Server
 from flask_migrate import Migrate, MigrateCommand
 from app import app
 
@@ -14,7 +14,7 @@ manager = Manager(app)
 
 # bmkg_helper = ApiBMKGHelper()
 # ee_helper = ApiEEHelper()
-# dashboard_helper = DashboardHelper()
+dashboard_helper = DashboardHelper()
 
 # @manager
 # def test_api():
@@ -45,10 +45,13 @@ manager = Manager(app)
 # def test_ndvi():
 #     # result = dashboard_helper.calculate_ndvi()
 #     result = dashboard_helper.calculate_temperature()
-#     print(result, "RESULT")
 
+@manager.command
+def download_ndvi():
+    result = dashboard_helper.download_ndvi()
+    print(result, "RESULT")
 
-
+manager.add_command('runserver', Server(host='0.0.0.0', port=5000))
 
 if __name__ == '__main__':
     manager.run()

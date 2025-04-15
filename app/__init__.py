@@ -10,11 +10,11 @@ dashboard_helper = DashboardHelper()
 @app.route('/')
 def index():
     datas = {
-        'avg_vi' : 0.0,
-        'avg_temp': 0,
-        'avg_cgdd': 0.00,
-        'avg_days': 0,
-        'prediction_accuracy': 0
+        'avg_vi' : "---",
+        'avg_wide': "---",
+        'avg_yield': "---",
+        'prediction_days': "---",
+        'prediction_accuracy': "---",
     }
     return render_template('index.html', **datas)
 
@@ -23,28 +23,32 @@ def get_image():
     req = request.args
     period = req.get("period")
     year = req.get("year")
+    location = req.get("location")
 
-    avg_ndvi = "-"
-    result_ndvi = dashboard_helper.calculate_ndvi(year=year, period=period)
-    # result_ndvi = 0.56
-    if (result_ndvi):
-        avg_ndvi = "%.2f" % round(result_ndvi, 2)
+    avg_ndvi = "No Data"
+    result_avg_ndvi = dashboard_helper.calculate_ndvi(year=year, period=period, location=int(location))
+    if (result_avg_ndvi):
+        avg_ndvi = f"{result_avg_ndvi:.2f}"
 
-    avg_temp = "-"
-    result_avg_temp = dashboard_helper.calculate_temperature(year=year, period=period)
-    # result_avg_temp = 30
-    if (result_avg_temp):
-        avg_temp = str(int(result_avg_temp))
+    avg_wide = dashboard_helper.calculate_wide(location=int(location))
 
-    cgdd = dashboard_helper.calculate_cgdd(result_avg_temp)
-    result_avg_days = dashboard_helper.calculate_prediction(result_ndvi, cgdd)
+    time_year = int(year)
+    if (period == "Q4"):
+        time_year = int(year) + 1
+    avg_yield = dashboard_helper.calculate_yield(year=time_year, hectare=avg_wide)
+
+
+    days_remaining, confidence_score = "-", "-"
+    if avg_ndvi != "No Data":
+        result_days_remaining, result_confidence_score = dashboard_helper.calculate_harvest_day(result_avg_ndvi)
+        days_remaining, confidence_score = f"{result_days_remaining:.0f}", f"{result_confidence_score:.0f}"+"%"
     
     datas = {
         'avg_vi' : avg_ndvi,
-        'avg_temp': avg_temp,
-        'avg_cgdd': cgdd,
-        'avg_days': result_avg_days,
-        'prediction_accuracy': 00
+        'avg_wide': f"{avg_wide:.2f}" + " ha",
+        'avg_yield': f"{avg_yield:.2f}" + " ton",
+        'prediction_days': days_remaining,
+        'prediction_accuracy': confidence_score
     }
 
     return jsonify({
